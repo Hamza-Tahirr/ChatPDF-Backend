@@ -33,7 +33,7 @@ pinecone.init(api_key="YourAPIKey")  # Replace "YourAPIKey" with your actual Pin
 index_name = "ChatPDF"  # put in the name of your Pinecone index here
 vectorstore = Pinecone.from_texts([t.page_content for t in texts], embeddings, index_name=index_name)
 
-# Query documents
+# Query pdf input field
 query = "What is Artificial Intelligence?"
 docs = vectorstore.similarity_search(query)
 

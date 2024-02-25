@@ -1,9 +1,9 @@
 # Required installations
-# pip install langchain --upgrade
-# !pip install pypdf
+# install requ. txt wali file 
+# ismein PyMuPDF is an alternative to pypdf2
 
 # Importing necessary libraries
-from langchain.document_loaders import TextLoader
+from langchain.document_loaders import PDFLoader  
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv
 import os
@@ -15,10 +15,10 @@ import pinecone
 
 # Loading environment variables
 load_dotenv()
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'YourAPIKey')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'YourAPIKeyPC')
 
 # Load data
-loader = TextLoader(file_path="../data/PaulGrahamEssays/vb.txt")
+loader = PDFLoader(file_path="../Program/hamza/AI.pdf")  # Use PDFLoader 
 data = loader.load()
 
 # Chunking data
@@ -30,11 +30,11 @@ embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 
 # Set up Pinecone
 pinecone.init(api_key="YourAPIKey")  # Replace "YourAPIKey" with your actual Pinecone API key
-index_name = "langchaintest"  # put in the name of your Pinecone index here
+index_name = "ChatPDF"  # put in the name of your Pinecone index here
 vectorstore = Pinecone.from_texts([t.page_content for t in texts], embeddings, index_name=index_name)
 
 # Query documents
-query = "What is great about having kids?"
+query = "What is Artificial Intelligence?"
 docs = vectorstore.similarity_search(query)
 
 # Initializing ChatOpenAI and running the chain

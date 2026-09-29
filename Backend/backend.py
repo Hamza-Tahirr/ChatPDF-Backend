@@ -1,43 +1,50 @@
-# Required installations
-# install requ. txt wali file 
-# ismein PyMuPDF is an alternative to pypdf2
-
-# Importing necessary libraries
-from langchain.document_loaders import PDFLoader  
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from dotenv import load_dotenv
+import argparse
 import os
-from langchain.vectorstores import Pinecone
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.chat_models import ChatOpenAI
+import sys
+
+from dotenv import load_dotenv
 from langchain.chains.question_answering import load_qa_chain
-import pinecone
+from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_pinecone import PineconeVectorStore
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# Loading environment variables
 load_dotenv()
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'YourAPIKeyPC')
 
-# Load data
-loader = PDFLoader(file_path="../Program/hamza/AI.pdf")  # Use PDFLoader 
-data = loader.load()
 
-# Chunking data
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-texts = text_splitter.split_documents(data)
+def main():
+    parser = argparse.ArgumentParser(description="Ask a question about a PDF file.")
+    parser.add_argument("pdf", help="path to the PDF file")
+    parser.add_argument("question", help="question to ask about the PDF")
+    args = parser.parse_args()
 
-# Create embeddings
-embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+    missing = [name for name in ("OPENAI_API_KEY", "PINECONE_API_KEY") if not os.getenv(name)]
+    if missing:
+        sys.exit(f"Missing environment variables: {', '.join(missing)}")
 
-# Set up Pinecone
-pinecone.init(api_key="YourAPIKey")  # Replace "YourAPIKey" with your actual Pinecone API key
-index_name = "ChatPDF"  # put in the name of your Pinecone index here
-vectorstore = Pinecone.from_texts([t.page_content for t in texts], embeddings, index_name=index_name)
+    # Pinecone index names must be lowercase
+    index_name = os.getenv("PINECONE_INDEX_NAME", "chatpdf")
 
-# Query pdf input field
-query = "What is Artificial Intelligence?"
-docs = vectorstore.similarity_search(query)
+    # Load data
+    data = PyMuPDFLoader(args.pdf).load()
 
-# Initializing ChatOpenAI and running the chain
-llm = ChatOpenAI(temperature=0, openai_api_key=OPENAI_API_KEY)
-chain = load_qa_chain(llm, chain_type="stuff")
-chain.run(input_documents=docs, question=query)
+    # Chunking data
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    texts = text_splitter.split_documents(data)
+
+    # Embed the chunks and store them in Pinecone
+    embeddings = OpenAIEmbeddings()
+    vectorstore = PineconeVectorStore.from_texts(
+        [t.page_content for t in texts], embeddings, index_name=index_name
+    )
+
+    docs = vectorstore.similarity_search(args.question)
+
+    llm = ChatOpenAI(temperature=0)
+    chain = load_qa_chain(llm, chain_type="stuff")
+    result = chain.invoke({"input_documents": docs, "question": args.question})
+    print(result["output_text"])
+
+
+if __name__ == "__main__":
+    main()

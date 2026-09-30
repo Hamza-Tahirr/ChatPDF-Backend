@@ -3,13 +3,28 @@ import os
 import sys
 
 from dotenv import load_dotenv
-from langchain.chains.question_answering import load_qa_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
+
+PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "Use the following pieces of context to answer the user's question.\n"
+            "If you don't know the answer, just say that you don't know, "
+            "don't try to make up an answer.\n"
+            "----------------\n"
+            "{context}",
+        ),
+        ("human", "{question}"),
+    ]
+)
 
 
 def main():
@@ -41,9 +56,8 @@ def main():
     docs = vectorstore.similarity_search(args.question)
 
     llm = ChatOpenAI(temperature=0)
-    chain = load_qa_chain(llm, chain_type="stuff")
-    result = chain.invoke({"input_documents": docs, "question": args.question})
-    print(result["output_text"])
+    chain = create_stuff_documents_chain(llm, PROMPT)
+    print(chain.invoke({"context": docs, "question": args.question}))
 
 
 if __name__ == "__main__":
